@@ -5,3 +5,4 @@ python-dotenv
 faster-whisper
 sounddevice
 soundfile
+openwakeword
