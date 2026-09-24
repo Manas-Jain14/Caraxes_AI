@@ -3,3 +3,14 @@
 **/.env
 __pycache__/
 *.pyc
+
+# Wake-word training artifacts
+wake_word_training/.venv/
+wake_word_training/.venv-generator/
+wake_word_training/**/__pycache__/
+wake_word_training/**/*.pyc
+wake_word_training/**/*.pth
+wake_word_training/**/*.pt
+wake_word_training/**/*.wav
+wake_word_training/**/*.npy
+wake_word_training/synthetic_speech_dataset_generation/.git/
