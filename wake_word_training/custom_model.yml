@@ -1,0 +1,47 @@
+model_name: caraxes
+target_phrase:
+  - "Caraxes"
+output_dir: ./models
+piper_sample_generator_path: ./synthetic_speech_dataset_generation
+
+# Official openWakeWord training expects many synthetic positive clips and
+# a richer negative/background set than a small hand-recorded dataset.
+# This repo keeps the training data external and lightweight.
+custom_negative_phrases:
+  - "hello there"
+  - "good morning"
+  - "how are you"
+  - "please open the door"
+  - "turn on the lights"
+
+# Negative/background audio directories for augmentation.
+# These paths are placeholders that should be populated with real WAV files.
+background_paths:
+  - ./data/background
+background_paths_duplication_rate:
+  - 1
+rir_paths:
+  - ./data/rir
+
+# Training sizes must be large enough to generalize, but the exact values are
+# set conservatively for a lightweight local setup.
+n_samples: 2000
+n_samples_val: 500
+
+tts_batch_size: 32
+augmentation_rounds: 3
+augmentation_batch_size: 16
+batch_n_per_class: 32
+
+steps: 2000
+max_negative_weight: 100
+layer_size: 128
+model_type: dnn
+target_false_positives_per_hour: 0.5
+
+# This file is supposed to be populated with a validation feature array.
+# It is required by the upstream training script, but the project intentionally
+# does not commit generated training artifacts.
+false_positive_validation_data_path: ./data/false_positive_validation.npy
+
+feature_data_files: {}

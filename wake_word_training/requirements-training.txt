@@ -1,0 +1,7 @@
+# Offline wake-word training dependencies for CARAXES Phase 3B.
+# This file is intentionally separate from the normal backend runtime requirements.
+# It is only for the official openWakeWord custom-training workflow.
+
+openwakeword
+mutagen
+acoustics
