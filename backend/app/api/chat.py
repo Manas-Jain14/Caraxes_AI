@@ -1,7 +1,11 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
-from app.ai.gemini import generate_gemini_response
+from app.ai.agent import generate_agent_response
+from app.ai.nebius import (
+    NebiusConfigurationError,
+    NebiusRequestError,
+)
 
 router = APIRouter()
 
@@ -24,9 +28,9 @@ class ChatResponse(BaseModel):
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        response = generate_gemini_response(request.message)
+        response = generate_agent_response(request.message)
         return ChatResponse(response=response)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Gemini request failed") from None
+    except NebiusConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except NebiusRequestError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
