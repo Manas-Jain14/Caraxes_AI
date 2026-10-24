@@ -105,6 +105,35 @@ def read_file(path: str, workspace: Path | str | None = None) -> dict:
     return {"path": path, "content": _read_text_file(file_path)}
 
 
+def write_file(path: str, content: str, workspace: Path | str | None = None) -> dict:
+    if not isinstance(content, str):
+        raise ToolError("File content must be text")
+    try:
+        if len(content.encode("utf-8")) > MAX_TEXT_FILE_BYTES:
+            raise ToolError("Text file exceeds the 1 MB write limit")
+    except UnicodeEncodeError:
+        raise ToolError("File content must be valid UTF-8 text") from None
+
+    file_path = _resolve_path(path, workspace)
+    root = _workspace_root(workspace)
+    if file_path == root:
+        raise ToolError("Path must name a file inside the CARAXES workspace")
+
+    try:
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        resolved_path = file_path.resolve()
+        resolved_path.relative_to(root)
+        if resolved_path.is_dir():
+            raise ToolError("Path must name a file inside the CARAXES workspace")
+        resolved_path.write_text(content, encoding="utf-8")
+    except ToolError:
+        raise
+    except (OSError, RuntimeError, ValueError):
+        raise ToolError("File could not be written inside the CARAXES workspace") from None
+
+    return {"success": True, "path": resolved_path.relative_to(root).as_posix()}
+
+
 def search_files(query: str, path: str = ".", workspace: Path | str | None = None) -> dict:
     if not isinstance(query, str) or not query.strip():
         raise ToolError("Search query must not be empty")
@@ -163,6 +192,10 @@ def execute_tool(name: str, arguments: object, workspace: Path | str | None = No
             if set(arguments) != {"path"}:
                 raise ToolError("Invalid arguments for read_file")
             return read_file(arguments["path"], workspace)
+        if name == "write_file":
+            if set(arguments) != {"path", "content"}:
+                raise ToolError("Invalid arguments for write_file")
+            return write_file(arguments["path"], arguments["content"], workspace)
         if name == "search_files":
             if set(arguments) - {"query", "path"} or "query" not in arguments:
                 raise ToolError("Invalid arguments for search_files")

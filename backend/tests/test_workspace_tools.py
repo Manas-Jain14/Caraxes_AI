@@ -3,7 +3,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.tools.workspace import ToolError, execute_tool, list_directory, read_file, search_files
+from app.tools.workspace import (
+    MAX_TEXT_FILE_BYTES,
+    ToolError,
+    execute_tool,
+    list_directory,
+    read_file,
+    search_files,
+    write_file,
+)
 
 
 class WorkspaceToolTests(unittest.TestCase):
@@ -32,6 +40,54 @@ class WorkspaceToolTests(unittest.TestCase):
         result = read_file("notes/welcome.txt", self.workspace)
 
         self.assertEqual(result["content"], "Caraxes can search this.")
+
+    def test_write_file_creates_file_inside_workspace(self):
+        result = write_file("notes/new.txt", "Hello, CARAXES!", self.workspace)
+
+        self.assertEqual(result, {"success": True, "path": "notes/new.txt"})
+        self.assertEqual((self.workspace / "notes" / "new.txt").read_text(encoding="utf-8"), "Hello, CARAXES!")
+
+    def test_write_file_creates_nested_parent_directories(self):
+        result = write_file("projects/new/note.txt", "Nested.", self.workspace)
+
+        self.assertEqual(result, {"success": True, "path": "projects/new/note.txt"})
+        self.assertEqual((self.workspace / "projects" / "new" / "note.txt").read_text(encoding="utf-8"), "Nested.")
+
+    def test_write_file_rejects_absolute_and_traversal_paths(self):
+        invalid_paths = (
+            str(self.workspace / "outside.txt"),
+            "../outside.txt",
+            "notes/../../outside.txt",
+            r"..\outside.txt",
+            r"notes\..\..\outside.txt",
+            r"C:\outside.txt",
+        )
+        for path in invalid_paths:
+            with self.subTest(path=path), self.assertRaises(ToolError):
+                write_file(path, "not allowed", self.workspace)
+
+    def test_write_file_rejects_oversized_content(self):
+        with self.assertRaisesRegex(ToolError, "1 MB write limit"):
+            write_file("large.txt", "x" * (MAX_TEXT_FILE_BYTES + 1), self.workspace)
+        self.assertFalse((self.workspace / "large.txt").exists())
+
+    def test_write_file_reports_filesystem_failures(self):
+        with patch("app.tools.workspace.Path.write_text", side_effect=PermissionError):
+            with self.assertRaisesRegex(ToolError, "could not be written"):
+                write_file("notes/blocked.txt", "text", self.workspace)
+
+    def test_write_file_rejects_symlink_escape_when_supported(self):
+        outside = Path(self.temporary_directory.name) / "outside"
+        outside.mkdir()
+        link = self.workspace / "escape"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink creation is unavailable")
+
+        with self.assertRaisesRegex(ToolError, "inside the CARAXES workspace"):
+            write_file("escape/blocked.txt", "not allowed", self.workspace)
+        self.assertFalse((outside / "blocked.txt").exists())
 
     def test_search_files_finds_case_insensitive_matches(self):
         result = search_files("CARAXES", workspace=self.workspace)
