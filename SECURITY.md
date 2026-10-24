@@ -2,8 +2,8 @@
 
 ## Current safeguards
 
-- Nebius credentials are read from `NEBIUS_API_KEY`, normally stored in the ignored `backend\.env`.
-- `NEBIUS_MODEL` selects the requested hosted model; `GEMINI_API_KEY` and `GEMINI_MODEL` are read only by the legacy microphone test helper.
+- `LLM_PROVIDER` explicitly selects `nebius` or `gemini`; credentials and model names are read only for the selected provider.
+- Nebius uses `NEBIUS_API_KEY` and `NEBIUS_MODEL`; Gemini uses `GEMINI_API_KEY` and `GEMINI_MODEL`. Store credentials in the ignored `backend\.env`.
 - `.env` files must never be committed. No API key belongs in source, examples, logs, or API responses.
 - The chat route sends the user's message and configured model to Nebius Token Factory for inference.
 - Provider errors returned to clients do not include raw SDK exceptions or credentials.

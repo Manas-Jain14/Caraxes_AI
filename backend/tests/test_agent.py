@@ -1,75 +1,77 @@
 import json
 import unittest
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from app.ai.agent import MAX_TOOL_ITERATIONS, TOOLS, generate_agent_response
-
-
-def completion(content=None, tool_calls=None):
-    message = MagicMock()
-    message.content = content
-    message.tool_calls = tool_calls or []
-    message.model_dump.return_value = {
-        "role": "assistant",
-        "content": content,
-        "tool_calls": tool_calls,
-    }
-    return SimpleNamespace(choices=[SimpleNamespace(message=message)])
-
-
-def tool_call(name="read_file", arguments='{"path":"notes/welcome.txt"}', call_id="call-1"):
-    return SimpleNamespace(
-        id=call_id,
-        function=SimpleNamespace(name=name, arguments=arguments),
-    )
+from app.ai.providers import get_provider
+from app.ai.providers.base import LLMProvider, LLMResponse, Message, ToolCall
 
 
 class AgentTests(unittest.TestCase):
-    @patch("app.ai.agent.get_nebius_client_and_model")
     @patch("app.ai.agent.execute_tool", return_value={"content": "Found it"})
-    def test_executes_allowlisted_tool_then_returns_model_response(self, execute_tool, get_client):
-        client = MagicMock()
-        client.chat.completions.create.side_effect = [
-            completion(tool_calls=[tool_call()]),
-            completion(content="Here is the file."),
+    @patch("app.ai.agent.get_provider")
+    def test_uses_provider_interface_for_tool_call_flow(self, get_provider_mock, execute_tool):
+        provider = MagicMock(spec=LLMProvider)
+        provider.generate.side_effect = [
+            LLMResponse(Message(
+                role="assistant",
+                tool_calls=(ToolCall("call-1", "read_file", {"path": "notes/welcome.txt"}),),
+            )),
+            LLMResponse(Message(role="assistant", content="Here is the file.")),
         ]
-        get_client.return_value = (client, "test-model")
+        get_provider_mock.return_value = provider
 
         result = generate_agent_response("Read my note")
 
         self.assertEqual(result, "Here is the file.")
+        get_provider_mock.assert_called_once_with()
         execute_tool.assert_called_once_with("read_file", {"path": "notes/welcome.txt"})
-        first_call = client.chat.completions.create.call_args_list[0]
-        self.assertEqual(first_call.kwargs["tools"], TOOLS)
-        second_messages = client.chat.completions.create.call_args_list[1].kwargs["messages"]
-        self.assertEqual(json.loads(second_messages[-1]["content"]), {"content": "Found it"})
+        self.assertEqual(provider.generate.call_args_list[0].args[1], TOOLS)
+        second_messages = provider.generate.call_args_list[1].args[0]
+        self.assertEqual(json.loads(second_messages[-1].content), {"content": "Found it"})
 
-    @patch("app.ai.agent.get_nebius_client_and_model")
-    def test_stops_at_tool_iteration_limit(self, get_client):
-        client = MagicMock()
-        client.chat.completions.create.return_value = completion(tool_calls=[tool_call()])
-        get_client.return_value = (client, "test-model")
+    @patch("app.ai.agent.get_provider")
+    def test_stops_at_tool_iteration_limit(self, get_provider_mock):
+        provider = MagicMock(spec=LLMProvider)
+        provider.generate.return_value = LLMResponse(Message(
+            role="assistant",
+            tool_calls=(ToolCall("call-1", "list_directory", {}),),
+        ))
+        get_provider_mock.return_value = provider
 
         with patch("app.ai.agent.execute_tool", return_value={"ok": True}) as execute_tool:
             result = generate_agent_response("Keep going")
 
         self.assertIn("tool-call limit", result)
-        self.assertEqual(client.chat.completions.create.call_count, MAX_TOOL_ITERATIONS + 1)
+        self.assertEqual(provider.generate.call_count, MAX_TOOL_ITERATIONS + 1)
         self.assertEqual(execute_tool.call_count, MAX_TOOL_ITERATIONS)
 
-    @patch("app.ai.agent.get_nebius_client_and_model")
-    def test_malformed_json_is_returned_to_model_as_tool_error(self, get_client):
-        client = MagicMock()
-        client.chat.completions.create.side_effect = [
-            completion(tool_calls=[tool_call(arguments="{")]),
-            completion(content="The tool request was invalid."),
+    @patch("app.ai.agent.get_provider")
+    def test_non_object_tool_arguments_are_reported_to_provider(self, get_provider_mock):
+        provider = MagicMock(spec=LLMProvider)
+        provider.generate.side_effect = [
+            LLMResponse(Message(
+                role="assistant",
+                tool_calls=(ToolCall("call-1", "read_file", ["invalid"]),),
+            )),
+            LLMResponse(Message(role="assistant", content="The tool request was invalid.")),
         ]
-        get_client.return_value = (client, "test-model")
+        get_provider_mock.return_value = provider
 
         self.assertEqual(generate_agent_response("Read my note"), "The tool request was invalid.")
-        messages = client.chat.completions.create.call_args_list[1].kwargs["messages"]
-        self.assertEqual(json.loads(messages[-1]["content"]), {"error": "Tool arguments must contain valid JSON"})
+        messages = provider.generate.call_args_list[1].args[0]
+        self.assertEqual(json.loads(messages[-1].content), {"error": "Tool arguments must contain valid JSON"})
+
+    def test_agent_imports_only_the_provider_factory_interface(self):
+        from app.ai import agent
+
+        self.assertIs(agent.get_provider, get_provider)
+        self.assertNotIn("NebiusProvider", agent.__dict__)
+        self.assertNotIn("GeminiProvider", agent.__dict__)
+        self.assertEqual(
+            [tool.name for tool in agent.TOOLS],
+            ["list_directory", "read_file", "search_files"],
+        )
 
 
 if __name__ == "__main__":

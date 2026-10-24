@@ -1,6 +1,6 @@
 # CARAXES Roadmap
 
-Status reflects code and tests in this repository. Phase 5 is on its feature branch; authenticated live inference has not been verified.
+Status reflects code and tests in this repository. Phase 6 provider switching is implemented on its feature branch; authenticated live inference has not been verified.
 
 ## Completed
 
@@ -12,6 +12,7 @@ Status reflects code and tests in this repository. Phase 5 is on its feature bra
 - Phase 3B — Production Caraxes model data/features exist, but production training, export, and validation are incomplete.
 - Phase 4 — Nebius + Nemotron provider and focused tests are implemented on `phase-4-nebius-nemotron`. Authenticated live inference and review/merge are pending.
 - Phase 5 — bounded Nebius tool calling with three read-only controlled-workspace tools and tests is implemented on `phase-5-agent-tools`; authenticated live inference and review/merge are pending.
+- Phase 6 — environment-selected Nebius/Gemini adapters share the existing agent and tools; mocked tests pass, live inference and review/merge are pending.
 - Phase 2 voice utilities exist, but do not form an end-to-end voice conversation flow.
 
 ## Next
@@ -31,13 +32,14 @@ Status reflects code and tests in this repository. Phase 5 is on its feature bra
 | 3B | Custom Caraxes model | In progress; training/export/validation incomplete |
 | 4 | Nebius Token Factory + NVIDIA Nemotron | Provider/tests implemented on feature branch; authenticated live call and review pending |
 | 5 | Agent tools | Implemented on `phase-5-agent-tools`: bounded read-only workspace listing, reading, and search |
-| 6 | Web research | Planned |
-| 7 | RAG over user-approved content | Planned |
-| 8 | Memory | Planned |
-| 9 | Permissions and action verification | Planned |
-| 10 | Desktop UI | Planned |
-| 11 | Evaluation | Planned |
-| 12 | Hackathon/demo polish | Planned |
+| 6 | LLM provider abstraction and switching | Implemented on `phase-6-llm-provider-abstraction`; live provider calls pending |
+| 7 | Web research | Planned |
+| 8 | RAG over user-approved content | Planned |
+| 9 | Memory | Planned |
+| 10 | Permissions and action verification | Planned |
+| 11 | Desktop UI | Planned |
+| 12 | Evaluation | Planned |
+| 13 | Hackathon/demo polish | Planned |
 
 ## Phase 4 boundary
 

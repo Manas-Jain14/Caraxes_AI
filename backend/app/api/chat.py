@@ -2,10 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
 from app.ai.agent import generate_agent_response
-from app.ai.nebius import (
-    NebiusConfigurationError,
-    NebiusRequestError,
-)
+from app.ai.providers.base import ProviderConfigurationError, ProviderRequestError
 
 router = APIRouter()
 
@@ -30,7 +27,7 @@ async def chat(request: ChatRequest):
     try:
         response = generate_agent_response(request.message)
         return ChatResponse(response=response)
-    except NebiusConfigurationError as exc:
+    except ProviderConfigurationError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    except NebiusRequestError as exc:
+    except ProviderRequestError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc

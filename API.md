@@ -22,7 +22,7 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 
 ## `POST /api/chat`
 
-Sends one text message to Nebius Token Factory using the configured NVIDIA Nemotron model. The model may use the bounded, read-only workspace tools `list_directory`, `read_file`, and `search_files`.
+Sends one text message to the explicitly selected provider (`LLM_PROVIDER=nebius` or `LLM_PROVIDER=gemini`). The model may use the bounded, read-only workspace tools `list_directory`, `read_file`, and `search_files`.
 
 **Request body:**
 
@@ -38,7 +38,7 @@ Sends one text message to Nebius Token Factory using the configured NVIDIA Nemot
 {"response":"<model-generated text>"}
 ```
 
-Missing provider configuration returns `503`. A failed upstream request or empty model response returns `502`; secret values and raw provider errors are not returned.
+Missing or unsupported provider configuration, or missing selected-provider credentials/model, returns `503`. A failed upstream request or empty model response returns `502`; secret values and raw provider errors are not returned.
 
 Tool access is restricted to the existing `CARAXES_WORKSPACE` directory (default `backend/CARAXES_WORKSPACE`). Tool paths must be relative and remain within that directory. Read and search operations accept UTF-8 text files no larger than 1 MB; search skips non-text or oversized files and returns at most 100 matching lines. The agent executes at most three tool-call rounds. It does not create, modify, or delete workspace content, execute commands, or access the web.
 
@@ -49,4 +49,4 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/chat `
   -ContentType "application/json" -Body '{"message":"Hello"}'
 ```
 
-Configuration is documented in [README.md](./README.md). The request uses Nebius Token Factory's OpenAI-compatible chat-completions API.
+Configuration is documented in [README.md](./README.md). Provider-specific function-calling formats are normalized behind a shared provider interface; the API and agent/tool behavior are unchanged when switching providers.
