@@ -1,50 +1,39 @@
 # CARAXES Roadmap
 
-Status reflects code and tests in this repository. Phase 6 provider switching is implemented on its feature branch; authenticated live inference has not been verified.
+This roadmap separates the implemented repository baseline from the product direction. Status is based on the source and tests in this checkout, not on branch names or unverified live provider calls.
 
-## Completed
-
-- Phase 1 — Basic FastAPI health/chat API and initial Gemini integration. Gemini is retained only by the legacy microphone test helper; it is not the active chat provider.
-- Phase 3A — openWakeWord utility using the bundled `hey_jarvis` model.
-
-## Current
-
-- Phase 3B — Production Caraxes model data/features exist, but production training, export, and validation are incomplete.
-- Phase 4 — Nebius + Nemotron provider and focused tests are implemented on `phase-4-nebius-nemotron`. Authenticated live inference and review/merge are pending.
-- Phase 5 — bounded Nebius tool calling with three read-only controlled-workspace tools and tests is implemented on `phase-5-agent-tools`; authenticated live inference and review/merge are pending.
-- Phase 6 — environment-selected Nebius/Gemini adapters share the existing agent and tools; mocked tests pass, live inference and review/merge are pending.
-- Phase 2 voice utilities exist, but do not form an end-to-end voice conversation flow.
-
-## Next
-
-- Configure a Nebius API key locally and verify one authenticated `/api/chat` request, then review and merge Phase 4.
-- Complete and validate the Phase 3B production Caraxes model before claiming that phase complete.
-
-## Planned
-
-- Web research, RAG, memory, permissions/action verification, desktop UI, evaluation, and demo polish.
+## Status
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1 | Basic FastAPI chat backend | Completed; Gemini remains in legacy microphone test code |
-| 2 | Voice utilities | Partial; recording/transcription exist, no end-to-end voice path |
-| 3A | openWakeWord utility | Completed with bundled `hey_jarvis` model |
-| 3B | Custom Caraxes model | In progress; training/export/validation incomplete |
-| 4 | Nebius Token Factory + NVIDIA Nemotron | Provider/tests implemented on feature branch; authenticated live call and review pending |
-| 5 | Agent tools | Implemented on `phase-5-agent-tools`: bounded read-only workspace listing, reading, and search |
-| 6 | LLM provider abstraction and switching | Implemented on `phase-6-llm-provider-abstraction`; live provider calls pending |
-| 7 | Web research | Planned |
-| 8 | RAG over user-approved content | Planned |
-| 9 | Memory | Planned |
-| 10 | Permissions and action verification | Planned |
-| 11 | Desktop UI | Planned |
-| 12 | Evaluation | Planned |
-| 13 | Hackathon/demo polish | Planned |
+| 0 | Product foundation and documentation alignment | Completed by this documentation milestone |
+| 1 | FastAPI chat, Gemini/Nebius provider abstraction, bounded agent loop, and workspace tools | Implemented; live inference requires configured credentials and has not been verified by the unit tests |
+| 2 | Local voice utilities | Partial; recording, faster-whisper transcription, and standalone pretrained `hey_jarvis` detection exist; no integrated voice loop or TTS |
+| 3 | Permission and safety foundation | Planned; centralized permission manager, explicit approvals, audit logging, cancellation, action verification, and race-condition protections are not implemented |
+| 4 | Integrated voice experience | Planned; connect recording/STT, an appropriately validated wake-word flow, agent, and TTS after defining permissions and privacy behavior |
+| 5 | Windows desktop interface | Planned; Tauri + React + TypeScript with Three.js / React Three Fiber visualization |
+| 6 | Controlled browser and application integrations | Planned; scope, approvals, input validation, timeouts, resource limits, cancellation, and verification required before enabling actions |
+| 7 | User-approved memory and document understanding/RAG | Planned; define consent, retention, deletion, and cloud-disclosure behavior first; SQLite is the initial storage intention |
+| 8 | Evaluation and release readiness | Planned; test language behavior, safety boundaries, error handling, and supported Windows workflows before product claims |
 
-## Phase 4 boundary
+## Immediate priorities
 
-Phase 4 changes only the provider used by `POST /api/chat`, adds required Nebius configuration, and documents/test the integration. It does not add tool calling, web research, RAG, memory, permissions, wake-word runtime integration, or desktop UI.
+1. Address the current `write_file` gap with an explicit authorization and confirmation design before expanding sensitive tool capabilities.
+2. Define action audit, cancellation, verification, resource/time limits, and defenses for filesystem race conditions.
+3. Join the existing local voice utilities into a user-controlled flow; decide on TTS and wake-word behavior without treating custom training as complete.
+4. Build the Windows desktop shell and visualization once backend interaction and permission boundaries are stable.
+5. Add browser/application actions, then memory and document retrieval, only with their privacy, permission, and verification requirements in place.
 
-## Phase 5 boundary
+## Current implementation boundary
 
-Phase 5 adds a bounded OpenAI-compatible tool-calling loop to `POST /api/chat` with only `list_directory`, `read_file`, and `search_files`, restricted to `CARAXES_WORKSPACE`. It does not add file writes/deletes, shell or OS control, web access, RAG, memory, permissions, wake-word runtime integration, or desktop UI.
+`POST /api/chat` selects Gemini or Nebius with `LLM_PROVIDER` and runs the same bounded agent loop. The agent can make at most three tool-call rounds and at most three tool calls in a round. Available tools are `list_directory`, `read_file`, `search_files`, and `write_file`, all constrained to `CARAXES_WORKSPACE`. Reads/searches are limited to 1 MB per file and searches return at most 100 matching lines; writes are limited to 1 MB and can create directories or overwrite files without an approval flow.
+
+There are no delete, shell, browser, memory, RAG, TTS, or desktop frontend implementations. The voice utilities are standalone. The wake-word detector loads openWakeWord's pretrained `hey_jarvis` model; custom Caraxes training is not a production model.
+
+## Dependency notes
+
+- Permission and safety controls should precede any expansion to destructive, external, browser, or application actions. The existing direct `write_file` behavior should be addressed as part of this work.
+- Full voice interaction depends on a clear activation/consent model and connecting the recording, transcription, agent, and speech-output components.
+- Desktop work depends on a stable interaction contract and should expose action state and approvals rather than imply unimplemented protections.
+- Browser automation and API integrations require strict capability boundaries, timeouts, resource limits, cancellation, and verification.
+- Memory and RAG require storage lifecycle, user approval, deletion, and disclosure rules, especially when retrieved private content is sent to a cloud model.

@@ -1,30 +1,39 @@
 # CARAXES Technology Stack
 
-## Current / implemented
+Status distinguishes what is present in this repository from the intended product architecture.
 
-| Technology | Purpose | Status |
+## Implemented
+
+| Technology | Purpose | Status / boundary |
 | --- | --- | --- |
-| Python | Backend and voice utilities | Implemented |
-| FastAPI, Uvicorn | HTTP API and ASGI server | Implemented |
-| Nebius Token Factory | Hosted inference for the main `/api/chat` route | Implemented on Phase 4 branch; authenticated live request pending |
-| OpenAI Python client | OpenAI-compatible Nebius chat request | Implemented on Phase 4 branch |
-| NVIDIA Nemotron 3 Nano 30B A3B | Configured language model | Implemented on Phase 4 branch; availability is account/region dependent |
-| OpenAI-compatible tool calling | Bounded agent loop for `/api/chat` | Implemented on Phase 5 branch; three read-only workspace tools only |
-| Python filesystem APIs | Controlled workspace listing, UTF-8 text reading, and search | Implemented on Phase 5 branch; constrained to `CARAXES_WORKSPACE` |
-| python-dotenv | Local environment configuration | Implemented |
-| faster-whisper | Local speech-to-text utility | Implemented |
-| sounddevice, soundfile | Local audio recording and WAV handling | Implemented |
-| openWakeWord | Wake-word utility and custom training workflow | Utility exists; production custom model is in progress |
-| Google Gemini / `google-genai` | Legacy microphone test helper only | Retained; not the active `/api/chat` provider |
+| Python | Backend and local voice utilities | Implemented |
+| FastAPI, Uvicorn | HTTP API and ASGI server | Implemented; `/health` and `/api/chat` |
+| Shared provider interface | Normalize model requests and tool calls | Implemented |
+| Nebius Token Factory, OpenAI Python client | Hosted inference adapter | Implemented; requires `NEBIUS_API_KEY` and `NEBIUS_MODEL` |
+| Google Gemini, `google-genai` | Hosted inference adapter | Implemented; requires `GEMINI_API_KEY` and `GEMINI_MODEL` |
+| Configured LLM selection | Select `nebius` or `gemini` using `LLM_PROVIDER` | Implemented; no automatic fallback |
+| Python filesystem APIs | Workspace list/read/search/write tools | Implemented; constrained to `CARAXES_WORKSPACE`; write is not approval-gated |
+| python-dotenv | Load local `.env` configuration | Implemented |
+| faster-whisper | Local speech-to-text utility | Implemented as a standalone utility |
+| sounddevice, soundfile | Microphone recording and WAV handling | Implemented as standalone utilities |
+| openWakeWord | Wake-word utility | Implemented with pretrained `hey_jarvis`; custom Caraxes production model is not implemented |
+| `unittest` | Backend test suite | Implemented; tests cover API, agent/provider behavior, and workspace tools |
 
-## Planned
+Neither remote provider is guaranteed to be free. Availability and pricing depend on provider account terms and current service configuration.
+
+## Intended stack (planned)
 
 | Technology | Intended purpose | Status |
 | --- | --- | --- |
-| LangGraph | Agent orchestration | Planned |
-| Qdrant | Vector retrieval for RAG | Planned |
-| Tauri, React, TypeScript | Desktop UI | Planned |
-| Piper TTS | Speech synthesis | Planned; not selected for production |
-| Database and persistent memory | Long-term assistant state | Planned |
+| Tauri | Windows desktop application shell | Planned |
+| React, TypeScript | Desktop interface and interaction surfaces | Planned |
+| Three.js / React Three Fiber | Central 3D visualization reflecting agent states | Planned |
+| Python, FastAPI | Desktop-to-agent backend contract | Backend exists; desktop integration is planned |
+| Gemini and Nebius adapters | Initial remote LLM providers behind an abstraction | Both adapters exist; provider operation is subject to account access |
+| faster-whisper | Local speech recognition in an integrated voice flow | Standalone utility exists; integration is planned |
+| Wake-word activation and TTS | Hands-free activation and spoken responses | Planned; no integrated wake-word loop or TTS implementation |
+| Playwright or controlled equivalent | Permission-bounded browser automation | Planned; not present in the current request path |
+| SQLite | Initial local persistence for user-approved memory | Planned; no database or persistent memory is implemented |
+| Document processing / RAG | Retrieve from user-approved documents | Planned; no RAG implementation exists |
 
-No planned technology above is active in the current chat request path.
+The planned technologies are intentions, not current runtime dependencies. No orchestration framework or vector database is selected in this stack.

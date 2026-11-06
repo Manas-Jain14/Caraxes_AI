@@ -2,78 +2,68 @@
 
 ## Product vision
 
-CARAXES is a multilingual, voice-first desktop assistant that can understand user requests, reason about them, and eventually perform useful tasks through controlled tools.
+CARAXES is intended to become a local-first, multilingual (English, Hindi, and Hinglish), voice-first personal AI desktop agent for Windows. It should support voice and text, plan and execute bounded multi-step tasks, and interact with local files and applications only through controlled, user-approved capabilities.
 
-## Problem
-
-People need an assistant that can accept natural spoken or written requests in English, Hindi, and Hinglish, respond clearly, and eventually help with tasks without taking unsafe or unverifiable actions.
-
-## Target user
-
-The initial target is an individual desktop user who wants a local, voice-oriented assistant with a simple text-chat interface and a path toward carefully controlled task automation.
+The long-term product may use remote LLM inference where appropriate. Users must be told when private document content will be sent to a cloud provider.
 
 ## Current product state
 
 ### Implemented
 
-- FastAPI health and chat endpoints.
-- Main `POST /api/chat` inference through Nebius Token Factory and a configured NVIDIA Nemotron model (Phase 4 feature branch).
-- Local audio recording and faster-whisper transcription utilities.
-- An openWakeWord detection utility and a separate custom-model training workspace.
+- FastAPI `GET /health` and `POST /api/chat`.
+- Gemini and Nebius provider adapters selected through `LLM_PROVIDER`, behind a shared provider interface.
+- A bounded agent loop with workspace tools for listing, reading, searching, and writing files. Tools are restricted to `CARAXES_WORKSPACE`.
+- Local audio recording, faster-whisper transcription, and standalone openWakeWord detection using the pretrained `hey_jarvis` model.
+- Tests for the API, agent/provider behavior, and workspace tools.
 
-### In progress
+### Partially implemented
 
-- Production custom Caraxes wake-word model training and validation (Phase 3B).
-- Authenticated live verification and review/merge of the Nebius + Nemotron provider change (Phase 4).
+- Workspace path checks reject traversal and resolved paths outside the configured workspace, and text operations enforce size limits. Symlink escapes are checked, but race-condition protection is not guaranteed.
+- `write_file` is exposed to the agent and writes directly, including creating parent directories and overwriting a file. There is no centralized permission manager, explicit approval flow, audit log, or action verification framework.
+- Recording, transcription, and wake-word detection exist as separate utilities, but do not form an integrated conversation flow.
+- Custom wake-word training materials and scripts exist; runtime detection still uses the pretrained `hey_jarvis` model. A production Caraxes model is not implemented.
 
 ### Planned
 
-- End-to-end voice conversation, wake-word activation, text-to-speech, tool use, web research, personal knowledge retrieval, persistent memory, and desktop UI.
+- A Tauri + React + TypeScript Windows desktop interface with a central 3D agent-state visualization using Three.js / React Three Fiber.
+- Integrated voice and text interaction, wake-word activation, and text-to-speech.
+- Multi-step planning and controlled interaction with local files and applications.
+- Browser automation or direct API integrations, using appropriately controlled tools.
+- User-approved persistent memory and document understanding/RAG.
+- SQLite as the initial persistence layer.
 
-## Requirements
+## Product goals
 
-### Goals
+- Provide a testable backend chat interface with configurable Gemini and Nebius providers.
+- Develop toward useful English, Hindi, and Hinglish interaction without making unverified language-quality claims.
+- Keep execution bounded, visible, and controlled by explicit user permissions rather than model output.
+- Prefer local processing for local resources where practical, and disclose cloud processing when user content is sent remotely.
 
-- Provide a minimal, testable chat API using the selected hosted NVIDIA model.
-- Develop toward natural English, Hindi, and Hinglish interaction.
-- Add future assistant actions only through controlled, verifiable capabilities.
+## Functional requirements and status
 
-### Functional requirements
+| Capability | Status | Notes |
+| --- | --- | --- |
+| Text chat | Implemented | `POST /api/chat` accepts a non-empty message and returns a response. |
+| Provider selection | Implemented | `LLM_PROVIDER=nebius` or `LLM_PROVIDER=gemini`; selected provider credentials and model are required. No automatic fallback. |
+| Workspace listing, reading, and search | Implemented | Bounded tools operate within `CARAXES_WORKSPACE`. |
+| Workspace writing | Implemented, without approval controls | `write_file` can create parent directories and write or overwrite UTF-8 files within the workspace. |
+| English, Hindi, and Hinglish | Intended; quality not separately verified | The current API forwards text to the selected model; no language detection or quality guarantee exists. |
+| Audio recording and transcription | Partially implemented | Local utilities only; not connected to chat. |
+| Wake-word activation | Partially implemented | Standalone detector uses pretrained `hey_jarvis`, not a production Caraxes model; no activation loop is connected. |
+| Text-to-speech and full voice conversation | Planned | No TTS implementation or integrated voice-to-agent pipeline exists. |
+| Desktop UI and 3D state visualization | Planned | No Tauri or frontend application exists. |
+| Browser/application actions, persistent memory, and RAG | Planned | Not implemented. |
 
-- The current backend exposes `GET /health` and `POST /api/chat`.
-- The chat route forwards text to the configured Nebius Token Factory model and returns the existing response shape.
-- Voice recording, speech transcription, and a pretrained wake-word utility are separate local components; they are not yet an end-to-end assistant flow.
+## Safety and trust requirements
 
-### Non-functional requirements
+LLM output must never authorize its own actions. A centralized permission manager must control sensitive operations, and destructive or sensitive actions must require explicit user approval. Tool schemas and arguments must be strictly validated. Filesystem operations must stay within approved workspaces and account for traversal, symlink escapes, and race conditions. Avoid unrestricted shell execution and arbitrary code execution. Apply timeouts and resource limits, record meaningful tool actions in audit logs, support cancellation, and verify important actions before reporting success.
 
-- Keep provider configuration out of source-controlled files.
-- Keep backend components focused, testable, and incrementally replaceable.
-- Do not claim live provider availability, language quality, model performance, or hackathon eligibility without verification.
+These are requirements for future hardening and expanded capabilities; they are not all implemented today. The current agent can invoke `write_file` without user approval. See [SECURITY.md](./SECURITY.md) for implemented safeguards and gaps.
 
-### Voice-first interaction — planned end-to-end
+## Provider and privacy requirements
 
-The product should support microphone input, wake-word activation, speech recognition, reasoning, and spoken responses. Audio recording and speech recognition utilities exist, but the complete voice loop and TTS are not implemented.
+The selected provider is configured with `LLM_PROVIDER`, `NEBIUS_API_KEY` / `NEBIUS_MODEL`, or `GEMINI_API_KEY` / `GEMINI_MODEL`. Provider pricing and availability depend on current account terms; neither is guaranteed free. Requests, including any workspace content returned to the agent as tool results, are sent to the selected cloud provider. Users must be informed before private documents are processed this way.
 
-### Multilingual interaction
+## Acceptance direction
 
-CARAXES is intended to support English, Hindi, and Hinglish. The current API forwards text to the configured language model; no separate language detector or quality guarantee is implemented.
-
-### Agentic task execution — planned
-
-The assistant should eventually request actions through explicitly defined tools rather than executing arbitrary commands. Tool calling is not implemented in the current chat path.
-
-### Personal knowledge — planned
-
-Future versions may retrieve relevant information from user-approved documents and persistent memory. RAG and memory are not implemented.
-
-### Controlled computer interaction — planned
-
-Future computer actions must be restricted to approved capabilities and a user-controlled workspace. Unrestricted shell execution is out of scope.
-
-### Safety, permissions, and verification — planned
-
-Tool input validation, least privilege, user confirmation for dangerous actions, and post-action verification are requirements for future execution features. No permission manager or action-verification framework currently exists.
-
-## Hackathon objective
-
-For the Nebius x NVIDIA Global AI Hackathon, the current Phase 4 objective is to route the existing chat API through Nebius Token Factory to an NVIDIA Nemotron model. This integration alone does not implement the longer-term agent vision or establish eligibility under event rules.
+Future product increments should ship in dependency-aware stages: establish permission and safety controls before expanding sensitive actions; integrate the standalone voice components before claiming an end-to-end voice assistant; and add desktop, browser, memory, or RAG features only with their security, privacy, and verification behavior defined.
