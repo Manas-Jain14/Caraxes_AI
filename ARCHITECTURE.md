@@ -1,50 +1,60 @@
 # CARAXES Architecture
 
-## Current implementation
+This document separates the implemented Python backend from the intended desktop-agent architecture.
 
-The active text chat path is:
+## Current implementation
 
 ```text
 Client
-  -> POST /api/chat
-  -> FastAPI chat route
-  -> bounded Nebius tool-calling loop
-     -> controlled workspace tools (list, read, search only)
-  -> Nebius Token Factory (OpenAI-compatible chat completions)
-  -> NVIDIA Nemotron
-  -> {"response": "..."}
+  -> FastAPI
+     -> GET /health
+     -> POST /api/chat
+        -> bounded agent loop
+           -> list_directory / read_file / search_files / write_file
+              -> CARAXES_WORKSPACE
+        -> configured provider adapter
+           -> Nebius Token Factory (OpenAI-compatible API)
+           -> Google Gemini
 ```
 
-The documented API base URL is `https://api.tokenfactory.nebius.com/v1/`. Authentication uses the `NEBIUS_API_KEY` environment variable. The model identifier is configured with `NEBIUS_MODEL`.
+`GET /health` does not contact a model. `POST /api/chat` accepts a non-empty `message` and returns a `response`. The provider factory requires `LLM_PROVIDER=nebius` or `LLM_PROVIDER=gemini`; it does not automatically fall back. Nebius requires `NEBIUS_API_KEY` and `NEBIUS_MODEL`, and uses `https://api.tokenfactory.nebius.com/v1/`. Gemini requires `GEMINI_API_KEY` and `GEMINI_MODEL`. Both adapters implement the same provider interface and normalize provider-specific tool-call formats. Credentials and model identifiers are configured outside source code.
 
-`GET /health` is independent of the LLM provider. The chat API accepts `{ "message": "..." }` and returns `{ "response": "..." }`. The agent can make at most three tool-call rounds. Its only tools list directories, read UTF-8 text files, and search text files under the existing `CARAXES_WORKSPACE` directory (default `backend/CARAXES_WORKSPACE`); paths resolving outside that root are rejected. The agent does not create or modify workspace content.
+The agent makes at most three tool-call rounds and accepts at most three calls per round. Tool schemas reject additional properties; the dispatcher also checks allowed argument keys. The tools list, read, and search within `CARAXES_WORKSPACE`, and can write UTF-8 text files there. Read/search operations have a 1 MB per-file limit and search returns at most 100 matching lines; writes have a 1 MB limit. `write_file` creates parent directories and can overwrite an existing file without a separate approval step. There are no delete, shell, browser, or operating-system control tools.
 
-Separate local voice utilities exist:
+Workspace paths are relative. Traversal and paths resolving outside the configured workspace are rejected; symlink escapes are checked during path resolution. These checks do not establish protection against filesystem race conditions. There is no centralized permission manager, approval workflow, audit log, or action verification system.
+
+## Separate local voice utilities
 
 ```text
 Microphone recording (backend/app/voice/audio.py)
   -> faster-whisper transcription (backend/app/voice/speech_to_text.py)
+
+Audio chunk
+  -> standalone openWakeWord detector (backend/app/voice/wake_word.py)
+     -> pretrained hey_jarvis model
 ```
 
-The wake-word utility in `backend/app/voice/wake_word.py` currently loads openWakeWord's bundled `hey_jarvis` model. It is not a Caraxes model and is not wired to the chat route or an activation loop. The microphone test script in `backend/app/voice/test_stt.py` still uses the legacy Gemini helper; `/api/chat` uses Nebius and does not fall back to Gemini.
+These utilities are not connected to `/api/chat`. Wake-word detection is not a continuous activation loop and does not use a production Caraxes-trained model. There is no TTS implementation or integrated voice-to-agent-to-speech pipeline. `backend/app/voice/test_stt.py` includes a separate legacy Gemini helper; it is not the chat route.
 
-## Planned architecture
-
-The following is a target, not current behavior:
+## Intended product architecture (planned)
 
 ```text
-Microphone
-  -> wake-word activation
-  -> speech-to-text
-  -> assistant reasoning (Nebius/Nemotron)
-  -> validated tools / approved knowledge sources
-  -> permission and confirmation checks
-  -> action execution and verification
-  -> response / text-to-speech
+Windows desktop: Tauri + React + TypeScript
+  -> voice and text interaction
+     -> wake-word / user-controlled activation
+     -> faster-whisper STT and future TTS
+     -> Python + FastAPI backend
+        -> provider abstraction (initially Gemini and Nebius)
+        -> bounded planner and validated tool schemas
+        -> centralized permission manager and user approval
+        -> controlled local file/application and browser/API integrations
+        -> SQLite initial storage for user-approved memory
+        -> document understanding / RAG over user-approved sources
+  -> Three.js / React Three Fiber visualization of agent states
 ```
 
-Real-time activation, web research, RAG, memory, a permission system, TTS, and desktop UI are not connected to the current chat endpoint. Phase 5 currently implements only bounded read-only workspace tools; it does not enable file changes, shell execution, web access, or unrestricted computer control.
+This is a target, not a description of current runtime behavior. The frontend, TTS, permission manager, browser/API integrations, SQLite persistence, memory, and RAG are not implemented. Future sensitive actions must be authorized by explicit user-controlled policy; an LLM response must never grant its own permission.
 
 ## Provider decision
 
-Phase 4 uses the official Nebius Token Factory OpenAI-compatible chat API and a Nemotron model listed in Nebius’s public [model catalog](https://tokenfactory.nebius.com/model-catalog.md). See [ADR-001](./docs/decisions/ADR-001-nebius-nemotron.md).
+The current implementation supports configurable Nebius Token Factory and Google Gemini adapters. Provider availability, model access, pricing, and account terms may vary; neither provider is guaranteed to be free. Any private workspace content returned to a tool call is included in the conversation sent to the selected remote provider. See [SECURITY.md](./SECURITY.md) for privacy and safety boundaries.
